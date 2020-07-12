@@ -1,14 +1,14 @@
 import React, { Component } from 'react';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+// import Icon from 'react-native-vector-icons/MaterialIcons';
 import {
     StyleSheet,
-    ScrollView,
     View,
     Text,
     TextInput,
-    Image,
     Linking,
-    TouchableOpacity
+    TouchableOpacity,
+    ImageBackground,
+    FlatList
 } from 'react-native';
 import axios from 'axios'
 
@@ -35,67 +35,62 @@ const styles = StyleSheet.create({
         fontSize: 16
     },
     contact: {
-        height: 70,
-        flexDirection: 'row',
+        flex: 1,
+        flexDirection: 'column',
+        margin: 1
     },
-    profilePic: {
-        height: 60,
-        width: 60,
-        borderRadius: 50,
-        marginRight: 10
-    },
-    justifyCenter: {
-        justifyContent: 'center',
+    imageBackground: {
+        justifyContent: 'flex-end',
+        height: 100,
     },
     name: {
-        fontSize: 17,
-    },
-    number: {
-        color: '#a7a7a7',
-    },
-    numberContainer: {
-        display: 'flex',
-        flexDirection: 'row'
-    },
-    iconContainer: {
-        marginRight: 5,
-        marginTop: 1,
+        padding: 5,
+        fontWeight: 'bold',
+        color: '#FFF',
+        textShadowRadius: 1.5,
+        textShadowColor: '#000'
     }
 })
 
+const columns = 3
 export default class extends Component {
     handleSearch = (text) => {
-        const filteredContacts = this.state.contacts.filter(name => name.toLowerCase().indexOf(text.toLowerCase()) > -1)
+        const filteredContacts = this.state.contacts.filter(contact => contact.toLowerCase().indexOf(text.toLowerCase()) > -1)
         this.setState({
-            contactsToDisplay: filteredContacts
+            contactsToDisplay: this.formatContacts(filteredContacts)
         })
+    }
+    contactItem = ({item}) => {
+        if (item.isFillContact) {
+            return (
+                <View style={styles.contact}>
+                    <ImageBackground style={styles.imageBackground} source={require('./img/white.png')}></ImageBackground>
+                </View>
+            )
+        }
+        else {
+            return (
+                <View style={styles.contact}>
+                    <ImageBackground style={styles.imageBackground} source={{uri: item.img}}>
+                        <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.cellphone}`)}>
+                            <Text style={styles.name}>{item.name}</Text>
+                        </TouchableOpacity>
+                    </ImageBackground>
+                </View>
+            )
+        }
     }
     renderContacts = () => {
         if(this.state.request.status) {
             if(this.state.contactsToDisplay.length) {
                 return (
                     <View style={styles.contactsContainer}>
-                        <ScrollView>
-                            {this.state.contactsToDisplay.sort().map((contact, index) => {
-                                const cellphone = `${Math.floor(1000 + Math.random() * 9000)}00${index}`
-                                return (
-                                    <View style={styles.contact} key={index}>
-                                        <View style={styles.justifyCenter}>
-                                            <Image style={styles.profilePic} source={{uri: 'https://reactnative.dev/img/tiny_logo.png'}}/>
-                                        </View>
-                                        <TouchableOpacity onPress={() => Linking.openURL(`tel:${cellphone}`)} style={styles.justifyCenter}>
-                                            <Text style={styles.name}>{contact}</Text>
-                                            <View style={styles.numberContainer}>
-                                                <View style={styles.iconContainer}>
-                                                    <Icon style={styles.number} name='call' size={16}/>
-                                                </View>
-                                                <Text style={styles.number}>{cellphone}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    </View>
-                                )
-                            })}
-                        </ScrollView>
+                        <FlatList
+                            data={this.state.contactsToDisplay.sort()}
+                            renderItem={item => this.contactItem(item)}
+                            keyExtractor={item => item.id}
+                            numColumns={columns}
+                        />
                     </View>
                 )
             }
@@ -115,6 +110,28 @@ export default class extends Component {
             )
         }
     }
+    formatContacts = (contacts) => {
+        //Agrega imagen y numero de celular
+        let formattedContacts = contacts.map((value, index) => {
+            return {
+                id: index,
+                name: value,
+                cellphone: `${Math.floor(1000 + Math.random() * 9000)}00${index}`,
+                img: `https://picsum.photos/id/${index+10}/100`,
+                isFillContact: false
+            }
+        })
+        //Rellena cuadros
+        const completedRows = Math.floor(contacts.length / columns)
+        let fillCount = columns - (contacts.length - (completedRows * columns)) 
+        if(fillCount === columns) {
+            fillCount = 0
+        }
+        for(let i = 0; i  < (fillCount); i++) {
+            formattedContacts = [...formattedContacts, {id: formattedContacts.length, isFillContact: true}]
+        }
+        return formattedContacts
+    }
     state = {
         request: {
             status : false,
@@ -125,17 +142,18 @@ export default class extends Component {
         searchValue : ''
     }
     componentDidMount = () => {
-        axios.get('https://api.fungenerators.com/name/generate?category=pirate&limit=20')
+        axios.get('https://api.fungenerators.com/name/generate?category=pirate&limit=19')
         .then((response) => {
             try {
                 if(response.status === 200) {
                     if(response.data.contents.names.length) {
+                        const formattedContacts = this.formatContacts(response.data.contents.names)
                         this.setState({
                             request: {
                                 status: true,
                             },
                             contacts: response.data.contents.names,
-                            contactsToDisplay: response.data.contents.names
+                            contactsToDisplay: formattedContacts
                         })
                     }
                     else {
